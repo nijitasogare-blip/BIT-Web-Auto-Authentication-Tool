@@ -1,7 +1,7 @@
 # BIT-Web Auto Login（原生 C 版）
 
-> 北京理工大学 `BIT-Web` 校园网断线自动重连工具 · Windows 10/11
-> **生产实现：纯 C / Win32（无 Python、无运行时依赖）**
+> 北京理工大学 `BIT-Web` 校园网断线自动重连工具 · **Windows 10/11 + Linux**
+> **生产实现：纯 C（Windows 用 Win32，Linux 用 POSIX）；无 Python、无重型运行时依赖**
 > Python 实现保留在 [`python-reference/`](python-reference/)，仅用于原理验证与测试向量。
 
 `BIT-Web` 频繁掉线后需要反复打开 `10.0.0.55` 重新认证，会打断远程桌面 / SSH / 科研任务。
@@ -28,7 +28,8 @@ Python 版 GUI 采用 PowerShell + 每次刷新 `python status_report.py` 子进
 ## 功能特性
 
 - **原生 C 守护进程**：登录 Windows 后由计划任务自动启动，无窗口、失败自动重启；
-- **系统托盘 GUI**：双击托盘图标随时呼出控制面板；关闭窗口最小化到托盘；
+- **系统托盘 GUI（Windows）**：双击托盘图标随时呼出控制面板；关闭窗口最小化到托盘；
+- **Linux CLI + TUI + systemd**：终端控制面板、用户级 systemd 服务、systemd 自启；
 - **终端 TUI**：`bitweb-cli.exe tui`，在 Windows Terminal / cmd 中按键操作；
 - **精确 SSID 判断**：只有 WLAN SSID 精确等于 `BIT-Web` 才工作（区分大小写），其他网络一律休眠；
 - **每 5 分钟外网检查**：HTTP 探测（识别被劫持到认证门户）+ `ping baidu.com` 兜底；
@@ -55,6 +56,26 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 > 提示：如果从本仓库目录直接运行 exe 时 WLAN 读取被拒绝（ACCESS_DENIED），
 > 请先 `install.ps1` 安装到 `%LOCALAPPDATA%\BITWebAutoLogin` 后再运行（确保与 TUI/GUI 的运行目录一致）。
 
+## Linux 版
+
+Linux 版为纯 C/POSIX 实现，与 Windows 共用协议与配置字段，提供 **CLI + TUI + 后台守护 + systemd 用户服务**（暂无桌面托盘 GUI）。
+
+```bash
+cd linux
+make
+./install.sh                  # 安装到 ~/.local/bin + systemd 用户服务（无需 root）
+~/.local/bin/bitweb set-password
+~/.local/bin/bitweb status
+~/.local/bin/bitweb tui
+```
+
+- SSID 检测依赖 NetworkManager 的 `nmcli`（可用 `iwgetid` 回退）；无 NetworkManager 的环境会休眠，只做只读外网检测；
+- 密码保存在 0600 权限的 `~/.config/bitweb-autologin/config.json`（Linux 无 DPAPI；不要与 Windows 的 `password_dpapi` 混用）；
+- 手动 `bitweb reconnect` 或 TUI 刷新检测到断网时，立即通知守护进程重连；
+- 非白名单网络每 5 分钟只做只读连通性检测，不访问门户、不认证；
+- 测试：`bash linux/tests/run_tests.sh`（本地假门户 + 模拟 SSID，不依赖真实校园网）。
+
+详见 [linux/README.md](linux/README.md)。
 ## 安装
 
 ```powershell
@@ -219,6 +240,7 @@ bitweb-autologin/
 │   ├── json.c                # 轻量 JSON 解析
 │   ├── util.c                # 文件/日志/路径等
 │   └── status.c              # 状态采集/自检文本
+├── linux/                    # Linux 原生 C 实现（CLI/TUI + systemd）
 ├── python-reference/         # 旧 Python 实现，仅作原理验证与测试向量
 ├── tests/                    # 见 python-reference/tests
 ├── build.ps1                 # gcc 构建脚本
@@ -244,7 +266,7 @@ python -m unittest discover -s python-reference\tests -v
 node python-reference\tests\js_reference.js
 ```
 
-CI（GitHub Actions）在 Windows 上使用 MSYS2 构建 C 版本并运行 `crypto-test`，
+CI（GitHub Actions）在 Windows 上使用 MSYS2 构建 C 版本并运行 `crypto-test`，在 Ubuntu 上构建 Linux 版并运行假门户集成测试，
 同时在 Windows/Linux 上运行 Python 参考测试、校验 JS 向量与 PowerShell 语法。
 
 ## 已知限制

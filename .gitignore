@@ -10,6 +10,8 @@ obj/
 *.obj
 *.exe
 *.pdb
+linux/bitweb
+linux/src/*.o
 
 # 运行时数据（可能包含个人信息，切勿提交）
 config.json

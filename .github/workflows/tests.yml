@@ -37,6 +37,17 @@ jobs:
           }
           if ($failed) { exit 1 }
 
+  build-linux:
+    name: Linux 构建与集成测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 构建
+        run: make -C linux
+      - name: 协议签名向量
+        run: ./linux/bitweb crypto-test
+      - name: 本地假门户集成测试
+        run: bash linux/tests/run_tests.sh
   python-reference:
     name: Python 参考实现测试（${{ matrix.os }} / ${{ matrix.python-version }}）
     runs-on: ${{ matrix.os }}

@@ -1,0 +1,41 @@
+{
+  "username": "",
+  "password_dpapi": "",
+  "password": "",
+  "portal": {
+    "host": "10.0.0.55",
+    "scheme": "http",
+    "ac_id": "",
+    "timeout_sec": 6
+  },
+  "network": {
+    "allowed_ssids": [
+      "BIT-Web"
+    ],
+    "ssid_poll_sec": 15,
+    "sleep_confirm_polls": 2
+  },
+  "connectivity": {
+    "check_interval_sec": 300,
+    "ping_targets": [
+      "baidu.com",
+      "114.114.114.114"
+    ],
+    "ping_timeout_ms": 2000,
+    "http_probe": true,
+    "http_probe_url": "http://www.baidu.com/",
+    "http_probe_timeout_sec": 5
+  },
+  "login": {
+    "retry_count": 2,
+    "retry_delay_sec": 5,
+    "auth_error_backoff_sec": 1800,
+    "ignore": 2
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/bitweb_monitor.log",
+    "max_bytes": 1048576,
+    "backup_count": 3
+  }
+}

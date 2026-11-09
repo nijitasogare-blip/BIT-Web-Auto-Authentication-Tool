@@ -9,6 +9,9 @@
 *.txt  text eol=lf
 *.yml  text eol=lf
 
+*.sh   text eol=lf
+Makefile text eol=lf
+*.service.in text eol=lf
 *.ps1  text eol=crlf
 *.bat  text eol=crlf
 *.cmd  text eol=crlf

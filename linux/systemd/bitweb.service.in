@@ -1,0 +1,15 @@
+[Unit]
+Description=BIT-Web auto login daemon (Linux native C)
+Documentation=file://@DOC@
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=@BIN@ daemon --config @CONFIG@
+Restart=on-failure
+RestartSec=5
+Nice=10
+
+[Install]
+WantedBy=default.target
