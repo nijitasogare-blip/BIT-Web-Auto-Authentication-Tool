@@ -1,0 +1,153 @@
+{
+  "xencode": [
+    {
+      "text": "",
+      "key": "token",
+      "expected": ""
+    },
+    {
+      "text": "{}",
+      "key": "token",
+      "expected": "=­àk<*Sq"
+    },
+    {
+      "text": "{\"username\":\"2024000001\",\"password\":\"TestP@ss!234\",\"ip\":\"10.0.0.2\",\"acid\":\"43\",\"enc_ver\":\"srun_bx1\"}",
+      "key": "2494f3d9bdb1af7dfea63939126a202694282f6ebbea0c8cf8a7ab2cd7ff8fca",
+      "expected": "\u0006¥øAõ\u000f¬0ã36\u0002O{\u0002,\u000bÒªcÌ\u0019×ÜG]M\u0007RÁMñß'9Ö`JNäd\u0016\u0012\rXµöÌ\u000e¶(*ð\u0002¹â¾°0¦å\u001c1b}¶røjFß\u000eÅ\u0002ÌB\u001aï·¶óåqEú\u001d}º\u0006«*Õîî#Ê"
+    },
+    {
+      "text": "The quick brown fox jumps over the lazy dog",
+      "key": "key-0123456789",
+      "expected": "dÍ\rü¶u\u001c¹ß×½íFºðì{KYÇ\u0006Ä\u0004ò/þ·¸HkºË!´Ã()Oüô \u000b"
+    },
+    {
+      "text": "abc",
+      "key": "k",
+      "expected": "\u0002Æ\u0013F^Uïf"
+    }
+  ],
+  "base64": [
+    {
+      "bytes": "",
+      "expected": ""
+    },
+    {
+      "bytes": "000102",
+      "expected": "LLPo"
+    },
+    {
+      "bytes": "68656c6c6f20776f726c64",
+      "expected": "OCubWC4SnI5xWC+="
+    },
+    {
+      "bytes": "fffefdfc",
+      "expected": "AAE5AL=="
+    },
+    {
+      "bytes": "7b22757365726e616d65223a2232303234303030303031222c2270617373776f7264223a2254657374504073732132333422",
+      "expected": "rxRjMIuxWUif1m2B2k2v9k+v9JLv9JPXGoRvZc0znI5x1o2B2phpM7h++N0z2F2z0o2="
+    }
+  ],
+  "hmac": [
+    {
+      "password": "password",
+      "token": "token",
+      "expected": "fd07c716fa2b6a86413916082c8bfdc3"
+    },
+    {
+      "password": "TestP@ss!234",
+      "token": "2494f3d9bdb1af7dfea63939126a202694282f6ebbea0c8cf8a7ab2cd7ff8fca",
+      "expected": "1243b7497e0b17501d1c0cdb6593a161"
+    }
+  ],
+  "login": [
+    {
+      "token": "2494f3d9bdb1af7dfea63939126a202694282f6ebbea0c8cf8a7ab2cd7ff8fca",
+      "username": "2024000001",
+      "password": "TestP@ss!234",
+      "ac_id": "43",
+      "ip": "10.0.0.2",
+      "params": {
+        "action": "login",
+        "username": "2024000001",
+        "password": "{MD5}1243b7497e0b17501d1c0cdb6593a161",
+        "ac_id": "43",
+        "ip": "10.0.0.2",
+        "chksum": "beec28b6e734647a4e0233999b3501d527bf0d7e",
+        "info": "{SRBX1}VdcDUPC05+Qb9RFk9zZoF7boGLwmdUg9CnsMhjj0S+nmvH767xMejUV8FKhYiT20aGcIzLBI8olvLlU2DlBv98WpNJiXsW1xQC3C7vEiLb6oCKQ7fwgpqciiQTj5KSOlpXluEKDkp9/=",
+        "n": "200",
+        "type": "1",
+        "os": "Windows 10",
+        "name": "Windows",
+        "double_stack": "0",
+        "ignore": "2"
+      }
+    },
+    {
+      "token": "2494f3d9bdb1af7dfea63939126a202694282f6ebbea0c8cf8a7ab2cd7ff8fca",
+      "username": "2024000002",
+      "password": "simple-password",
+      "ac_id": "43",
+      "ip": "10.0.0.99",
+      "params": {
+        "action": "login",
+        "username": "2024000002",
+        "password": "{MD5}e80528b01a44a7d0c52357972a4c791a",
+        "ac_id": "43",
+        "ip": "10.0.0.99",
+        "chksum": "7ff96da38faff3641e3d030a4edcb6d0f81510bd",
+        "info": "{SRBX1}Q+k2dvOZgrVkLGGq/2WlQoXXwmeYKQeEyERr7To7JJYuQ+hqxZb7dImaTe/XX0Is1cO5eXRMpqKc1DvrXacI46t+1qxj8KzZX8AZnalXpCTZ1zpHlp5C+ZysviPMjNII160DTkKZs+TbA2J6",
+        "n": "200",
+        "type": "1",
+        "os": "Windows 10",
+        "name": "Windows",
+        "double_stack": "0",
+        "ignore": "2"
+      }
+    },
+    {
+      "token": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "username": "2024000001",
+      "password": "TestP@ss!234",
+      "ac_id": "43",
+      "ip": "10.0.0.2",
+      "params": {
+        "action": "login",
+        "username": "2024000001",
+        "password": "{MD5}30305d71017789ce6f4009410f6625f0",
+        "ac_id": "43",
+        "ip": "10.0.0.2",
+        "chksum": "476418bd9814d34d40328d97f4b840f966f0ac9b",
+        "info": "{SRBX1}G4l179/Jt7Lot6J3NRkfLodiOYrc01IOgfQ4tOSpgd/zIomPGOMPikRHwwReI/3mWEB2JIIBQgW2uwQPTcX6gVhfWQVh3c/AviWKF5ZId5ErxxAOE/58FzdtyQqvBax3Ii4qtQEnRLH=",
+        "n": "200",
+        "type": "1",
+        "os": "Windows 10",
+        "name": "Windows",
+        "double_stack": "0",
+        "ignore": "2"
+      }
+    },
+    {
+      "token": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "username": "2024000002",
+      "password": "simple-password",
+      "ac_id": "43",
+      "ip": "10.0.0.99",
+      "params": {
+        "action": "login",
+        "username": "2024000002",
+        "password": "{MD5}51c3dfdf5d88de8c21779d3466de8c76",
+        "ac_id": "43",
+        "ip": "10.0.0.99",
+        "chksum": "be72c5f777482e8e7e3595bac670da7719c447d3",
+        "info": "{SRBX1}2dh+l6f5KE0GX+86DIgMXxprRHLiTrv1YHvW9pvSNQ02wRgK7iNRCPip3ERzq65qqZYLRT9p+YApU/7lZ4bIqhQPN7De7/DssBkRemysCUntw2wouSS/TlVxVE5fw3OwLXC9VMsPCajkO6Lg",
+        "n": "200",
+        "type": "1",
+        "os": "Windows 10",
+        "name": "Windows",
+        "double_stack": "0",
+        "ignore": "2"
+      }
+    }
+  ]
+}

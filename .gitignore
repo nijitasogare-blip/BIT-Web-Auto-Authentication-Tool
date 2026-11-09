@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 运行时数据（可能包含个人信息，切勿提交）
+config.json
+config.json.tmp
+logs/
+*.log
+crash.log
+
+# 本地开发 / 验证产生的临时目录
+_probe/
+_verify/
+.pytest_cache/
+.venv/
+venv/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# 打包产物
+build/
+dist/
+*.spec
