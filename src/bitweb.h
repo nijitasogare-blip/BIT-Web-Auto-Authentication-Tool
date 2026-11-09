@@ -11,11 +11,12 @@
 #include <stdio.h>
 #include <stddef.h>
 
-#define BITWEB_VERSION        L"2.0.0"
+#define BITWEB_VERSION        L"2.1.0"
 #define BITWEB_APP_NAME       L"BIT-Web 自动登录"
 #define BITWEB_DAEMON_MUTEX   L"Local\\BITWebAutoLogin.Singleton"
 #define BITWEB_GUI_MUTEX      L"Local\\BITWebAutoLoginTray"
 #define BITWEB_STOP_EVENT     L"Local\\BITWebAutoLogin.Stop"
+#define BITWEB_WAKE_EVENT     L"Local\\BITWebAutoLogin.Wake"
 #define BITWEB_DAEMON_TASK    L"BITWebAutoLogin"
 #define BITWEB_TRAY_TASK      L"BITWebAutoLoginTray"
 
@@ -225,6 +226,7 @@ void bw_base64_encode(const unsigned char *in, int len, char *out, int cap);
 int  bw_base64_decode(const char *in, unsigned char *out, int cap);
 int  bw_wcs_contains(const wchar_t *haystack, const wchar_t *needle);
 int  bw_running_mutex_exists(const wchar_t *name);
+int  bw_signal_daemon_wake(void);
 int  bw_ensure_single_instance(const wchar_t *name, HANDLE *mutex_out);
 int  bw_ascii_only(const char *text);
 

@@ -179,8 +179,7 @@ static int simple_http_get(const wchar_t *url, int timeout_ms,
     return 1;
 }
 
-static int http_probe_online(const BWConfig *cfg, wchar_t *detail, int cap) {
-    int timeout_ms = cfg->http_probe_timeout_sec * 1000;
+static int http_probe_online(const BWConfig *cfg, int timeout_ms, wchar_t *detail, int cap) {
     if (timeout_ms <= 0) timeout_ms = 5000;
     char *body = (char *)malloc(32768);
     if (!body) return 0;
@@ -252,13 +251,17 @@ static int ping_host(const wchar_t *host, int timeout_ms) {
     return ok;
 }
 
-int bw_connectivity_check(const BWConfig *cfg, wchar_t *detail, int cap) {
+static int connectivity_once(const BWConfig *cfg, wchar_t *detail, int cap, int quick) {
     detail[0] = 0;
     if (cfg->http_probe) {
-        if (http_probe_online(cfg, detail, cap)) return 1;
+        int timeout_ms = (cfg->http_probe_timeout_sec > 0 ? cfg->http_probe_timeout_sec : 5) * 1000;
+        if (quick && timeout_ms > 3000) timeout_ms = 3000;
+        if (http_probe_online(cfg, timeout_ms, detail, cap)) return 1;
     }
+    int ping_timeout = cfg->ping_timeout_ms;
+    if (quick && ping_timeout > 1200) ping_timeout = 1200;
     for (int i = 0; i < cfg->ping_target_count; i++) {
-        if (ping_host(cfg->ping_targets[i], cfg->ping_timeout_ms)) {
+        if (ping_host(cfg->ping_targets[i], ping_timeout)) {
             _snwprintf(detail, cap - 1, L"ping %ls 正常", cfg->ping_targets[i]);
             detail[cap - 1] = 0;
             return 1;
@@ -273,4 +276,11 @@ int bw_connectivity_check(const BWConfig *cfg, wchar_t *detail, int cap) {
         detail[cap - 1] = 0;
     }
     return 0;
+}
+
+int bw_connectivity_check(const BWConfig *cfg, wchar_t *detail, int cap) {
+    /* 两轮探测：瞬时抖动不轻易判离线，避免误触发“注销残留会话重登”。 */
+    if (connectivity_once(cfg, detail, cap, 0)) return 1;
+    bw_sleep_ms(600);
+    return connectivity_once(cfg, detail, cap, 1);
 }

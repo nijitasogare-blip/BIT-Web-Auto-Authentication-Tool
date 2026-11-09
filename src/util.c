@@ -289,6 +289,13 @@ int bw_running_mutex_exists(const wchar_t *name) {
     return 1;
 }
 
+int bw_signal_daemon_wake(void) {
+    HANDLE ev = OpenEventW(EVENT_MODIFY_STATE, FALSE, BITWEB_WAKE_EVENT);
+    if (!ev) return 0;
+    SetEvent(ev);
+    CloseHandle(ev);
+    return 1;
+}
 int bw_ensure_single_instance(const wchar_t *name, HANDLE *mutex_out) {
     HANDLE h = CreateMutexW(NULL, FALSE, name);
     if (!h) return 0; /* 创建失败时按"允许运行"处理 */

@@ -239,6 +239,9 @@ BWJson *bw_json_parse(const char *text, wchar_t *err, int errcap) {
     JParser ps;
     memset(&ps, 0, sizeof(ps));
     ps.p = text ? text : "";
+    /* 容忍 UTF-8 BOM（Windows 记事本另存后常见） */
+    if ((unsigned char)ps.p[0] == 0xEF && (unsigned char)ps.p[1] == 0xBB &&
+        (unsigned char)ps.p[2] == 0xBF) ps.p += 3;
     ps.err[0] = 0;
     ps.errcap = 256;
     BWJson *j = parse_value(&ps, 0);

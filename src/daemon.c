@@ -12,6 +12,7 @@ typedef struct {
     int      mode;            /* 0=sleep 1=active */
     int      sleep_pending;
     uint64_t next_check;
+    uint64_t next_idle_check;
     uint64_t auth_fail_until;
     uint64_t config_error_until;
     uint64_t last_mtime;
@@ -233,7 +234,16 @@ static void connectivity_cycle(Daemon *d) {
     }
 }
 
-static void daemon_tick(Daemon *d) {
+static void idle_probe(Daemon *d) {
+    wchar_t detail[512];
+    int online = bw_connectivity_check(&d->cfg, detail, 512);
+    bw_log(&d->log, online ? BWLOG_INFO : BWLOG_WARN,
+           L"非白名单网络连通性（仅检测，不认证）：%ls（%ls）",
+           online ? L"正常" : L"不通", detail);
+    d->next_idle_check = bw_now_ms() + (uint64_t)d->cfg.check_interval_sec * 1000;
+}
+
+static void daemon_tick(Daemon *d, int force) {
     maybe_reload(d);
     wchar_t err[256] = { 0 }, ssid[128] = { 0 }, connected[512] = { 0 };
     int active = active_ssid(&d->cfg, ssid, 128, connected, 512, err, 256);
@@ -250,18 +260,23 @@ static void daemon_tick(Daemon *d) {
             bw_log(&d->log, BWLOG_INFO,
                    L"检测到白名单 SSID「%ls」，开始监听（下次连通性检查：立即）", ssid);
         }
+        if (force) d->next_check = now;
     } else {
         if (d->mode == 1) {
             d->sleep_pending++;
             if (d->sleep_pending >= d->cfg.sleep_confirm_polls) {
                 d->mode = 0;
                 d->next_check = 0;
+                d->next_idle_check = now;
                 bw_log(&d->log, BWLOG_INFO,
-                       L"当前无白名单 SSID（已连接：%ls），进入休眠：不访问门户、不发送任何信息",
+                       L"当前无白名单 SSID（已连接：%ls），进入休眠：不访问门户、不认证",
                        connected[0] ? connected : L"无");
             }
         }
-        if (d->mode == 0) return;
+        if (d->mode == 0) {
+            if (force || now >= d->next_idle_check) idle_probe(d);
+            return;
+        }
     }
     if (d->sleep_pending) return;
     if (now < d->next_check) return;
@@ -300,18 +315,32 @@ int bw_daemon_run(const wchar_t *config_path) {
     int poll_ms = d.cfg.ssid_poll_sec * 1000;
     if (poll_ms < 5000) poll_ms = 5000;
 
-    for (;;) {
-        if (d.stop_event && WaitForSingleObject(d.stop_event, 0) == WAIT_OBJECT_0) {
-            bw_log(&d.log, BWLOG_INFO, L"收到停止信号，守护进程结束");
-            break;
+    HANDLE wake_event = CreateEventW(NULL, FALSE, FALSE, BITWEB_WAKE_EVENT);
+    daemon_tick(&d, 0);   /* 启动后立即检测一次，不等第一个轮询周期 */
+    if (d.stop_event && wake_event) {
+        for (;;) {
+            HANDLE handles[2] = { d.stop_event, wake_event };
+            DWORD wait = WaitForMultipleObjects(2, handles, FALSE, (DWORD)poll_ms);
+            if (wait == WAIT_OBJECT_0) {
+                bw_log(&d.log, BWLOG_INFO, L"收到停止信号，守护进程结束");
+                break;
+            }
+            if (wait == WAIT_OBJECT_0 + 1) {
+                bw_log(&d.log, BWLOG_INFO, L"收到立即检查请求（手动刷新/托盘重连）");
+                daemon_tick(&d, 1);
+            } else {
+                daemon_tick(&d, 0);
+            }
         }
-        daemon_tick(&d);
-        if (d.stop_event) {
-            WaitForSingleObject(d.stop_event, (DWORD)poll_ms);
-        } else {
-            bw_sleep_ms(poll_ms);
+    } else {
+        for (;;) {
+            if (d.stop_event && WaitForSingleObject(d.stop_event, 0) == WAIT_OBJECT_0) break;
+            daemon_tick(&d, 0);
+            if (d.stop_event) WaitForSingleObject(d.stop_event, (DWORD)poll_ms);
+            else bw_sleep_ms(poll_ms);
         }
     }
+    if (wake_event) CloseHandle(wake_event);
     if (d.stop_event) CloseHandle(d.stop_event);
     if (mutex) CloseHandle(mutex);
     bw_logger_close(&d.log);

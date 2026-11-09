@@ -38,6 +38,7 @@
 #define IDM_RESTART  305
 #define IDM_LOG      306
 #define IDM_EXIT     307
+#define IDM_RECONNECT 308
 
 static HINSTANCE g_hinst;
 static HWND g_hwnd;
@@ -55,6 +56,8 @@ static volatile LONG g_refresh_with_network;
 static CRITICAL_SECTION g_lock;
 static BWStatus g_status;
 static wchar_t g_selftest[65536];
+static wchar_t g_log_last[8192];
+static uint64_t g_last_reconnect_ms;
 
 static HWND g_values[9];
 static HWND g_log_edit;
@@ -125,6 +128,33 @@ static void start_refresh(int with_network) {
         else InterlockedExchange(&g_worker_running, 0);
     }
 }
+static void launch_daemon(void) {
+    wchar_t dir[BITWEB_MAX_PATH * 2], exe[BITWEB_MAX_PATH * 2], cmd[BITWEB_MAX_PATH * 4];
+    if (!bw_get_exe_dir(dir, (int)(sizeof(dir) / sizeof(wchar_t)))) return;
+    swprintf(exe, (int)(sizeof(exe) / sizeof(wchar_t)), L"%ls\\bitweb.exe", dir);
+    if (GetFileAttributesW(exe) == INVALID_FILE_ATTRIBUTES) return;
+    swprintf(cmd, (int)(sizeof(cmd) / sizeof(wchar_t)), L"\"%ls\" daemon", exe);
+    STARTUPINFOW si;
+    PROCESS_INFORMATION pi;
+    memset(&si, 0, sizeof(si));
+    si.cb = sizeof(si);
+    memset(&pi, 0, sizeof(pi));
+    if (CreateProcessW(exe, cmd, NULL, NULL, FALSE, 0, NULL, dir, &si, &pi)) {
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+    }
+}
+
+/* 手动刷新发现断网时：确保守护进程在跑，并通知它立刻重连。 */
+static void trigger_reconnect_now(void) {
+    if (!bw_running_mutex_exists(BITWEB_DAEMON_MUTEX)) {
+        launch_daemon();
+        bw_sleep_ms(600);
+    }
+    bw_signal_daemon_wake();
+    g_last_reconnect_ms = bw_now_ms();
+    SetTimer(g_hwnd, 2, 3500, NULL);
+}
 
 static void apply_status(void) {
     BWStatus st;
@@ -139,7 +169,7 @@ static void apply_status(void) {
     set_label2(1, L"密码：", st.password_configured ? L"已配置（DPAPI 加密）" : L"未配置（点“设置密码”）");
     set_label2(2, L"白名单：", st.allowed);
     set_label2(3, L"当前 SSID：", st.connected_ssids[0] ? st.connected_ssids : L"未连接");
-    set_label2(4, L"监听状态：", st.in_whitelist ? L"工作中" : L"休眠（不访问门户）");
+    set_label2(4, L"监听状态：", st.in_whitelist ? L"工作中" : L"休眠（仅检测连通性，不认证）");
     if (st.connectivity_checked) {
         wchar_t line[1024];
         _snwprintf(line, 1023, L"外网：%ls（%ls）",
@@ -147,20 +177,33 @@ static void apply_status(void) {
         line[1023] = 0;
         set_label(5, line);
     } else {
-        set_label2(5, L"外网：", st.in_whitelist ? L"未检测（点“刷新状态”）" : L"未检测（休眠中）");
+        set_label2(5, L"外网：", st.in_whitelist ? L"未检测（点“刷新状态”）" : L"未检测（休眠，点刷新可检测）");
     }
     set_label2(6, L"守护进程：", st.daemon_running ? L"运行中" : L"未运行");
     set_label2(7, L"托盘界面：", L"运行中");
     set_label2(8, L"开机自启：", task_installed() ? L"已安装计划任务" : L"未检测到计划任务");
 
     if (g_log_edit) {
-        SetWindowTextW(g_log_edit, st.log_tail);
-        SendMessageW(g_log_edit, EM_SETSEL, 0, (LPARAM)-1);
-        SendMessageW(g_log_edit, EM_SETSEL, (WPARAM)-1, (LPARAM)-1);
+        /* 只有日志变化时才重设文本；并保持用户当前滚动位置，避免滚动时文字重叠/跳动。 */
+        if (wcscmp(st.log_tail, g_log_last) != 0) {
+            int first = (int)SendMessageW(g_log_edit, EM_GETFIRSTVISIBLELINE, 0, 0);
+            wcsncpy(g_log_last, st.log_tail, 8191);
+            g_log_last[8191] = 0;
+            SetWindowTextW(g_log_edit, st.log_tail);
+            if (first > 0) SendMessageW(g_log_edit, EM_LINESCROLL, 0, first);
+        }
     }
     wchar_t line[256];
     _snwprintf(line, 255, L"最后刷新：%ls", st.generated);
     if (g_updated) SetWindowTextW(g_updated, line);
+
+    /* 手动/启动检测到“白名单网络 + 外网不通”：立即通知守护进程重连。 */
+    if (st.connectivity_checked && !st.online && st.in_whitelist) {
+        uint64_t now = bw_now_ms();
+        if (g_last_reconnect_ms == 0 || now - g_last_reconnect_ms > 5000) {
+            trigger_reconnect_now();
+        }
+    }
 }
 
 /* ------------------------- 自检 / 重启 ------------------------- */
@@ -392,6 +435,7 @@ static void show_tray_menu(void) {
     HMENU menu = CreatePopupMenu();
     AppendMenuW(menu, MF_STRING, IDM_SHOW, L"打开控制面板");
     AppendMenuW(menu, MF_STRING, IDM_REFRESH, L"刷新状态（联网检测）");
+    AppendMenuW(menu, MF_STRING, IDM_RECONNECT, L"立即重连");
     AppendMenuW(menu, MF_STRING, IDM_SELFTEST, L"立即自检");
     AppendMenuW(menu, MF_STRING, IDM_PASSWORD, L"设置密码");
     AppendMenuW(menu, MF_STRING, IDM_RESTART, L"重启守护进程");
@@ -446,6 +490,7 @@ static void create_controls(HWND hwnd) {
                                  ES_READONLY | ES_AUTOVSCROLL,
                                  S(16), S(246), S(670), S(250), hwnd, NULL, g_hinst, NULL);
     SendMessageW(g_log_edit, WM_SETFONT, (WPARAM)g_font_mono, TRUE);
+    SendMessageW(g_log_edit, EM_SETLIMITTEXT, 65536, 0);
     g_updated = CreateWindowExW(0, L"STATIC", L"最后刷新：--", WS_CHILD | WS_VISIBLE | SS_LEFT,
                                 S(16), S(504), S(400), S(20), hwnd, NULL, g_hinst, NULL);
     SendMessageW(g_updated, WM_SETFONT, (WPARAM)g_font, TRUE);
@@ -528,6 +573,7 @@ static LRESULT CALLBACK main_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 case ID_EXIT: g_exiting = 1; DestroyWindow(hwnd); break;
                 case IDM_SHOW: show_window(); break;
                 case IDM_REFRESH: start_refresh(1); break;
+                case IDM_RECONNECT: trigger_reconnect_now(); start_refresh(1); break;
                 case IDM_SELFTEST: run_selftest(); break;
                 case IDM_PASSWORD: show_password_dialog(); break;
                 case IDM_RESTART: restart_daemon(); break;
@@ -625,7 +671,7 @@ int bw_gui_run(int silent) {
     int x = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
     int y = (GetSystemMetrics(SM_CYSCREEN) - h) / 2;
     g_hwnd = CreateWindowExW(0, WND_CLASS, L"BIT-Web 自动登录（原生 C 版）",
-                             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+                             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN,
                              x, y, w, h, NULL, NULL, g_hinst, NULL);
     if (!g_hwnd) return 1;
 

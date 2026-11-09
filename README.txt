@@ -12,6 +12,8 @@ BIT-Web 掉线后需要反复访问 10.0.0.55 重新认证。本工具后台常�
   * 保持连接期间每 5 分钟检查一次外网（HTTP + ping baidu.com）；
   * 连到其他无线网、有线网或未联网时休眠，不访问门户、不发送任何个人信息；
   * 开机自动启动（计划任务），带系统托盘 GUI 和终端 TUI；
+  * 手动点击“刷新状态”检测到断网时，立即通知守护进程重连；
+  * 非 BIT-Web 网络只做只读连通性检测（不访问门户、不认证）；
   * 密码用 Windows DPAPI 加密，日志不记录密码。
 
 为什么用原生 C：Python 版 GUI 每次刷新都要启动 Python 子进程，界面会卡顿；
@@ -68,6 +70,7 @@ C 版把 SSID/HTTP/认证/GUI 全部放进进程内，面板刷新不再阻塞�
   bitweb-cli.exe set-password  设置/更新密码
   bitweb-cli.exe crypto-test   协议签名离线测试（与门户 JS 向量对拍）
   bitweb-cli.exe login-test    登录请求测试（已在线时返回“IP 已在线”）
+  bitweb-cli.exe reconnect     通知守护进程立即检查/重连
 
 日志：
   %LOCALAPPDATA%\BITWebAutoLogin\logs\bitweb_monitor.log
@@ -76,7 +79,7 @@ C 版把 SSID/HTTP/认证/GUI 全部放进进程内，面板刷新不再阻塞�
 ----------------------------------------------------------------------
   每 15 秒读取 WLAN SSID：
     当前 SSID == BIT-Web ?
-      否 -> 休眠：只轮询 SSID，不访问 10.0.0.55、不发送任何信息
+      否 -> 休眠：只轮询 SSID + 每 5 分钟只读连通性检测，不访问门户、不认证
               （连续 2 次确认不到才休眠，避免瞬断误判）
       是 -> 唤醒：立即检查外网
               通   -> 记录“连通性正常”

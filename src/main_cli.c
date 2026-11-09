@@ -72,7 +72,10 @@ int bw_cli_status(int with_network) {
     BWConfig cfg;
     wchar_t err[256] = { 0 };
     if (!bw_config_load(&cfg, g_bitweb_config_path, err, 256)) {
-        wprintf(L"读取配置失败：%ls\n配置文件：%ls\n", err, g_bitweb_config_path);
+        wchar_t msg[2048];
+        _snwprintf(msg, 2047, L"读取配置失败：%ls\n配置文件：%ls\n", err, g_bitweb_config_path);
+        msg[2047] = 0;
+        print_utf8(msg);
         return 1;
     }
     BWStatus st;
@@ -223,6 +226,33 @@ static int cli_login_test(void) {
     print_utf8(line);
     return 1;
 }
+static int cli_reconnect(void) {
+    if (!bw_running_mutex_exists(BITWEB_DAEMON_MUTEX)) {
+        wchar_t dir[BITWEB_MAX_PATH * 2], exe[BITWEB_MAX_PATH * 2], cmd[BITWEB_MAX_PATH * 4];
+        if (bw_get_exe_dir(dir, (int)(sizeof(dir) / sizeof(wchar_t)))) {
+            swprintf(exe, (int)(sizeof(exe) / sizeof(wchar_t)), L"%ls\\bitweb.exe", dir);
+            if (GetFileAttributesW(exe) != INVALID_FILE_ATTRIBUTES) {
+                swprintf(cmd, (int)(sizeof(cmd) / sizeof(wchar_t)), L"\"%ls\" daemon", exe);
+                STARTUPINFOW si;
+                PROCESS_INFORMATION pi;
+                memset(&si, 0, sizeof(si));
+                si.cb = sizeof(si);
+                memset(&pi, 0, sizeof(pi));
+                if (CreateProcessW(exe, cmd, NULL, NULL, FALSE, 0, NULL, dir, &si, &pi)) {
+                    CloseHandle(pi.hThread);
+                    CloseHandle(pi.hProcess);
+                    bw_sleep_ms(600);
+                }
+            }
+        }
+    }
+    if (bw_signal_daemon_wake()) {
+        print_utf8(L"已通知守护进程立即检查连通性；若断网会自动认证。\n");
+        return 0;
+    }
+    print_utf8(L"守护进程未运行，无法通知（请先运行 install.ps1 或 bitweb.exe daemon）。\n");
+    return 1;
+}
 static void usage(void) {
     wprintf(L"BIT-Web 自动登录（原生 C 版）v%ls\n\n", BITWEB_VERSION);
     wprintf(L"用法：bitweb-cli.exe [--config PATH] <命令>\n\n");
@@ -232,6 +262,7 @@ static void usage(void) {
     wprintf(L"  self-test     安装自检\n");
     wprintf(L"  set-password  设置/更新密码\n");
     wprintf(L"  crypto-test   协议签名离线测试\n");
+    wprintf(L"  reconnect     通知守护进程立即检查/重连\n");
 }
 
 int wmain(int argc, wchar_t **argv) {
@@ -259,6 +290,7 @@ int wmain(int argc, wchar_t **argv) {
     if (wcscmp(command, L"tui") == 0) return bw_tui_run();
     if (wcscmp(command, L"self-test") == 0) return bw_cli_selftest();
     if (wcscmp(command, L"login-test") == 0) return cli_login_test();
+    if (wcscmp(command, L"reconnect") == 0) return cli_reconnect();
     if (wcscmp(command, L"set-password") == 0) return bw_cli_set_password();
     if (wcscmp(command, L"crypto-test") == 0) return bw_cli_crypto_test();
     usage();

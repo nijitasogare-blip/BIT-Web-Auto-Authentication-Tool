@@ -46,11 +46,11 @@ void bw_status_collect(const BWConfig *cfg, BWStatus *st, int with_network) {
         wcsncpy(st->wlan_state, err, 255);
     }
 
-    if (with_network && st->in_whitelist) {
+    /* 只读连通性检测：无论当前是否白名单 SSID，都判断外网是否可达；
+       非白名单时绝不访问 10.0.0.55 门户、绝不提交认证。 */
+    if (with_network) {
         st->connectivity_checked = 1;
         st->online = bw_connectivity_check(cfg, st->net_detail, 512);
-    } else if (!st->in_whitelist) {
-        wcsncpy(st->net_detail, L"跳过（休眠中不发起任何网络请求）", 511);
     }
 
     st->daemon_running = bw_running_mutex_exists(BITWEB_DAEMON_MUTEX);
@@ -79,9 +79,10 @@ void bw_status_format(const BWStatus *st, wchar_t *out, int cap) {
     APPEND(L"密码      : %ls\n", st->password_configured ? L"已配置（DPAPI 加密）" : L"未配置");
     APPEND(L"白名单    : %ls\n", st->allowed);
     APPEND(L"当前 SSID : %ls\n", st->connected_ssids[0] ? st->connected_ssids : L"未连接");
-    APPEND(L"监听状态  : %ls\n", st->in_whitelist ? L"工作中" : L"休眠（不访问门户）");
+    APPEND(L"监听状态  : %ls\n", st->in_whitelist ? L"工作中" : L"休眠（仅检测连通性，不认证）");
     if (st->connectivity_checked) {
-        APPEND(L"外网连通  : %ls（%ls）\n", st->online ? L"正常" : L"不通", st->net_detail);
+        APPEND(L"外网连通  : %ls（%ls%ls）\n", st->online ? L"正常" : L"不通",
+               st->net_detail, st->in_whitelist ? L"" : L"，仅检测");
     } else {
         APPEND(L"外网连通  : %ls\n", st->net_detail);
     }
@@ -144,12 +145,16 @@ void bw_selftest_build(wchar_t *out, int cap) {
     }
     SEL_CHECK(L"当前网络", connected[0] != 0, connected[0] ? connected : L"无");
 
+    wchar_t detail[512];
+    int online = bw_connectivity_check(&cfg, detail, 512);
     if (active[0]) {
         _snwprintf(line, 1023, L"白名单 SSID：%ls", active);
         SEL_CHECK(L"监听状态", 1, line);
-        wchar_t detail[512];
-        int online = bw_connectivity_check(&cfg, detail, 512);
-        SEL_CHECK(L"外网连通", online, detail);
+    } else {
+        SEL_CHECK(L"监听状态", 1, L"休眠（当前不是白名单 SSID：仅检测连通性，不访问门户）");
+    }
+    SEL_CHECK(L"外网连通", online, detail);
+    if (active[0]) {
         BWPortal portal;
         if (bw_srun_discover(&cfg, &portal, err, 256)) {
             _snwprintf(line, 1023, L"%ls（ac_id=%ls，ip=%ls）",
@@ -166,9 +171,8 @@ void bw_selftest_build(wchar_t *out, int cap) {
         } else {
             SEL_CHECK(L"认证门户", 0, err);
         }
-    } else {
-        SEL_CHECK(L"监听状态", 1, L"休眠（当前不是白名单 SSID，不访问门户）");
     }
+
     SEL_CHECK(L"守护进程", bw_running_mutex_exists(BITWEB_DAEMON_MUTEX),
               bw_running_mutex_exists(BITWEB_DAEMON_MUTEX) ? L"运行中" : L"未运行");
     SEL_CHECK(L"托盘界面", bw_running_mutex_exists(BITWEB_GUI_MUTEX),
