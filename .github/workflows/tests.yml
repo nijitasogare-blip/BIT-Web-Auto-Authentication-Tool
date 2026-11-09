@@ -42,12 +42,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: 构建
+      - name: 安装 GUI 测试依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libayatana-appindicator3-dev xvfb imagemagick fonts-noto-cjk
+      - name: 构建 CLI/守护进程
         run: make -C linux
+      - name: 构建 GTK 面板
+        run: make -C linux gui
       - name: 协议签名向量
         run: ./linux/bitweb crypto-test
       - name: 本地假门户集成测试
         run: bash linux/tests/run_tests.sh
+      - name: GTK 面板 Xvfb 冒烟测试
+        run: bash linux/tests/gui_xvfb_test.sh
   python-reference:
     name: Python 参考实现测试（${{ matrix.os }} / ${{ matrix.python-version }}）
     runs-on: ${{ matrix.os }}

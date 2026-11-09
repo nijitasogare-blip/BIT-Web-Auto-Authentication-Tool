@@ -29,7 +29,7 @@ Python 版 GUI 采用 PowerShell + 每次刷新 `python status_report.py` 子进
 
 - **原生 C 守护进程**：登录 Windows 后由计划任务自动启动，无窗口、失败自动重启；
 - **系统托盘 GUI（Windows）**：双击托盘图标随时呼出控制面板；关闭窗口最小化到托盘；
-- **Linux CLI + TUI + systemd**：终端控制面板、用户级 systemd 服务、systemd 自启；
+- **Linux CLI + TUI + GTK3 面板/托盘 + systemd**：终端控制面板、桌面控制面板与托盘、用户级 systemd 服务；
 - **终端 TUI**：`bitweb-cli.exe tui`，在 Windows Terminal / cmd 中按键操作；
 - **精确 SSID 判断**：只有 WLAN SSID 精确等于 `BIT-Web` 才工作（区分大小写），其他网络一律休眠；
 - **每 5 分钟外网检查**：HTTP 探测（识别被劫持到认证门户）+ `ping baidu.com` 兜底；
@@ -58,7 +58,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 ## Linux 版
 
-Linux 版为纯 C/POSIX 实现，与 Windows 共用协议与配置字段，提供 **CLI + TUI + 后台守护 + systemd 用户服务**（暂无桌面托盘 GUI）。
+Linux 版为纯 C/POSIX 实现，与 Windows 共用协议与配置字段，提供 **CLI + TUI + GTK3 桌面面板/托盘 + 后台守护 + systemd 用户服务**。
 
 ```bash
 cd linux
@@ -240,7 +240,7 @@ bitweb-autologin/
 │   ├── json.c                # 轻量 JSON 解析
 │   ├── util.c                # 文件/日志/路径等
 │   └── status.c              # 状态采集/自检文本
-├── linux/                    # Linux 原生 C 实现（CLI/TUI + systemd）
+├── linux/                    # Linux 原生 C 实现（CLI/TUI + GTK 面板 + systemd）
 ├── python-reference/         # 旧 Python 实现，仅作原理验证与测试向量
 ├── tests/                    # 见 python-reference/tests
 ├── build.ps1                 # gcc 构建脚本

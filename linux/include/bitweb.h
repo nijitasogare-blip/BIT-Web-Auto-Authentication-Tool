@@ -205,6 +205,7 @@ int  bw_status_read_log_tail(const wchar_t *path, int lines, wchar_t *out, int c
 void bw_selftest_build(wchar_t *out, int cap);
 
 int bw_daemon_run(const wchar_t *config_path);
+int bw_gui_run(int silent);
 int bw_tui_run(void);
 int bw_set_password(void);
 int bw_cli_status(int with_network);

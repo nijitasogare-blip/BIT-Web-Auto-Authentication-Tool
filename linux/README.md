@@ -4,12 +4,15 @@
 无 Python 运行时依赖。支持：后台守护、SSID 状态机、只读连通性检测、断线自动认证、
 systemd 用户服务、终端 TUI 与命令行。
 
-> 说明：Linux 版目前提供 **CLI + TUI**，暂未实现桌面托盘 GUI（Windows 版有）。
-> 若需要可后续用 GTK/AppIndicator 扩展。
+> Linux 版提供 **CLI + TUI + GTK3 桌面面板/AppIndicator 托盘**，与 Windows 版功能对齐。
+> 桌面面板在无桌面环境（如服务器）下可继续使用 CLI/TUI 和 systemd 守护进程。
+
+![VMware Ubuntu 22.04 中的 Linux GTK 面板](docs/gui-vmware.png)
 
 ## 依赖
 
 - Linux（推荐 Ubuntu 22.04+），gcc、make、pthread；
+- 可选 GUI：GTK3 + libayatana-appindicator3 运行库/开发包；
 - 读取 SSID 需要 NetworkManager 的 `nmcli`（Ubuntu 桌面默认安装；
   也可用 `iwgetid` 作为回退；都没有时会休眠，只做外网只读检测）；
 - 可选：`ping` 命令（HTTP 探测失败时兜底；没有也可工作）；
@@ -19,7 +22,8 @@ systemd 用户服务、终端 TUI 与命令行。
 
 ```bash
 cd linux
-make
+make                     # CLI/守护进程
+make gui                 # 可选：GTK3 面板（需 libgtk-3-dev + libayatana-appindicator3-dev）
 ./bitweb crypto-test     # 协议签名向量自检（应与 Windows 版一致）
 ```
 
@@ -34,6 +38,7 @@ cd linux
 ~/.local/bin/bitweb set-password
 ~/.local/bin/bitweb status
 ~/.local/bin/bitweb tui
+~/.local/bin/bitweb-gui  # GTK 桌面面板（安装脚本检测到开发包时会自动构建）
 ```
 
 若 `~/.local/bin` 不在 PATH，可用绝对路径或加入 PATH。
@@ -54,6 +59,7 @@ cd linux
 | `bitweb login-test` | 发起一次登录请求测试 |
 | `bitweb reconnect` | 通知守护进程立即检查/重连（SIGUSR1） |
 | `bitweb daemon` | 前台运行守护进程（systemd 使用） |
+| `bitweb-gui` | GTK3 桌面控制面板；`--silent` 仅托盘启动（登录自启） |
 
 `--config PATH` 指定配置文件；`--simulate-ssid SSID` 或环境变量
 `BITWEB_SIMULATE_SSID` 可模拟 SSID（无 Wi-Fi 的开发机/CI 测试用）。
@@ -92,13 +98,17 @@ Linux 版不使用 Windows DPAPI：密码以 `"password"` 字段保存，并通�
 make
 make test                       # crypto 向量
 bash tests/run_tests.sh         # 本地假门户：登录链路 + 守护进程 + 休眠只读检测
+bash tests/gui_xvfb_test.sh     # GTK 面板在 Xvfb 中启动并截图（CI 使用）
 ```
 
 测试不依赖真实校园网：使用本地 fake portal（Python3）与 `BITWEB_SIMULATE_SSID`。
 `tests/` 仅在开发时使用，生产二进制不依赖 Python。
 
+已在 **VMware Workstation 17.5.2 + Ubuntu 22.04 cloud image** 中实际构建、运行并截图验证（Xvfb 1280×800）；详见 [docs/VMWARE_TEST.md](docs/VMWARE_TEST.md)。
+
 ## 已知限制
 
-- 暂无桌面 GUI/托盘；TUI/CLI + systemd 已覆盖后台自动认证；
+- 托盘图标依赖桌面环境的 AppIndicator/StatusNotifier 支持（Ubuntu 22.04 GNOME 默认可用；无桌面/Xvfb 下只显示窗口，不显示托盘）；
+- GUI 需要 GTK3/AppIndicator 开发包才能本地构建；安装脚本检测不到时只安装 CLI/TUI；
 - SSID 依赖 nmcli/iwgetid；无 NetworkManager 的服务器环境会退化为“仅检测、不自动认证”；
 - 仅支持 HTTP 门户（BIT-Web 当前即 HTTP）。

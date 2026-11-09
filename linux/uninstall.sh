@@ -4,8 +4,11 @@ set -euo pipefail
 
 PREFIX="${PREFIX:-$HOME/.local}"
 BIN="$PREFIX/bin/bitweb"
+GUI_BIN="$PREFIX/bin/bitweb-gui"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bitweb-autologin"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+AUTOSTART_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 UNIT="$UNIT_DIR/bitweb.service"
 PURGE=0
 [ "${1:-}" = "--purge" ] && PURGE=1
@@ -14,13 +17,10 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl --user stop bitweb.service 2>/dev/null || true
     systemctl --user disable bitweb.service 2>/dev/null || true
 fi
-if [ -f "$UNIT" ]; then
-    rm -f "$UNIT"
-    command -v systemctl >/dev/null 2>&1 && systemctl --user daemon-reload 2>/dev/null || true
-fi
-if [ -f "$BIN" ]; then
-    rm -f "$BIN"
-    echo "已删除 $BIN"
+rm -f "$UNIT" "$BIN" "$GUI_BIN"
+rm -f "$APPS_DIR/bitweb.desktop" "$AUTOSTART_DIR/bitweb-gui.desktop"
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user daemon-reload 2>/dev/null || true
 fi
 if [ "$PURGE" = "1" ]; then
     rm -rf "$CONFIG_DIR"
