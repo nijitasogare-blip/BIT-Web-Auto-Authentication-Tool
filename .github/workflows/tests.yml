@@ -1,34 +1,27 @@
-name: tests
+name: build-and-test
 
 on:
   push:
   pull_request:
 
 jobs:
-  protocol-tests:
-    name: 协议与核心逻辑（${{ matrix.os }}）
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest]
-        python-version: ["3.10", "3.12"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: 运行单元测试
-        shell: bash
-        run: |
-          python -m unittest discover -s tests -v
-
-  powershell-check:
-    name: PowerShell 语法与编码检查
+  build-c:
+    name: 构建 C 版本并验证签名向量
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: 检查 .ps1 语法
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc
+      - name: 构建
+        shell: pwsh
+        run: .\build.ps1 -Gcc 'C:\msys64\ucrt64\bin\gcc.exe'
+      - name: 协议签名向量测试
+        shell: pwsh
+        run: .\bin\bitweb-cli.exe crypto-test
+      - name: PowerShell 语法检查
         shell: pwsh
         run: |
           $failed = $false
@@ -44,7 +37,25 @@ jobs:
           }
           if ($failed) { exit 1 }
 
-  node-reference:
+  python-reference:
+    name: Python 参考实现测试（${{ matrix.os }} / ${{ matrix.python-version }}）
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: 运行参考测试
+        shell: bash
+        run: |
+          python -m unittest discover -s python-reference/tests -v
+
+  js-vectors:
     name: JS 参考向量一致性
     runs-on: ubuntu-latest
     steps:
@@ -52,7 +63,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: 重新生成向量并与仓库文件比较
+      - name: 重新生成向量并比较
         run: |
-          node tests/js_reference.js > /tmp/expected.json
-          diff -u tests/js_reference_expected.json /tmp/expected.json
+          node python-reference/tests/js_reference.js > /tmp/expected.json
+          diff -u python-reference/tests/js_reference_expected.json /tmp/expected.json

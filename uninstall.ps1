@@ -1,12 +1,10 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    卸载 BIT-Web 断线自动登录：移除开机自启动、托盘、开始菜单快捷方式，可选删除程序与配置。
+    卸载原生 C 版 BIT-Web 断线自动登录：移除开机自启/托盘/快捷方式，可选删除程序与配置。
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
-
-.EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\uninstall.ps1 -RemoveData
 #>
 [CmdletBinding()]
@@ -20,19 +18,6 @@ $ErrorActionPreference = 'Stop'
 $TaskName = 'BITWebAutoLogin'
 $TrayTaskName = 'BITWebAutoLoginTray'
 
-function Stop-MatchingProcess([string]$Pattern) {
-    Get-CimInstance Win32_Process -Filter "Name = 'pythonw.exe' OR Name = 'python.exe' OR Name = 'powershell.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -and $_.CommandLine -match $Pattern } |
-        ForEach-Object {
-            try {
-                Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop
-                Write-Host ("已结束进程 PID {0}" -f $_.ProcessId)
-            } catch {
-                Write-Host ("结束进程 {0} 失败: {1}" -f $_.ProcessId, $_.Exception.Message)
-            }
-        }
-}
-
 Write-Host '==> 停止并移除开机自启动'
 foreach ($name in @($TaskName, $TrayTaskName)) {
     $task = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
@@ -40,8 +25,6 @@ foreach ($name in @($TaskName, $TrayTaskName)) {
         Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
         Unregister-ScheduledTask -TaskName $name -Confirm:$false
         Write-Host "已删除计划任务: $name"
-    } else {
-        Write-Host "计划任务不存在: $name"
     }
 }
 $startup = [Environment]::GetFolderPath('Startup')
@@ -54,8 +37,16 @@ foreach ($name in @($TaskName, $TrayTaskName)) {
 }
 
 Write-Host '==> 结束正在运行的进程'
-Stop-MatchingProcess 'bitweb_monitor\.py'
-Stop-MatchingProcess 'gui\.ps1'
+Get-CimInstance Win32_Process -Filter "Name = 'bitweb.exe' OR Name = 'bitweb-cli.exe' OR Name = 'pythonw.exe' OR Name = 'python.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine -match 'bitweb|bitweb_monitor\.py' } |
+    ForEach-Object {
+        try {
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop
+            Write-Host ("已结束进程 PID {0}" -f $_.ProcessId)
+        } catch {
+            Write-Host ("结束进程 {0} 失败: {1}" -f $_.ProcessId, $_.Exception.Message)
+        }
+    }
 
 Write-Host '==> 删除开始菜单快捷方式'
 $menuDir = Join-Path ([Environment]::GetFolderPath('Programs')) 'BIT-Web 自动登录'
